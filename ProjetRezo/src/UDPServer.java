@@ -20,11 +20,10 @@ public class UDPServer {
                 int clientPort = receivePacket.getPort();
                 String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
 
-                System.out.println("Nouveau client : " + clientAddress + ":" + clientPort + " → " + message);
+                System.out.println("Message reçu de " + clientAddress + ":" + clientPort + " → " + message);
 
-                // Répondre au client
-                String response = "Serveur RX302 ready";
-                byte[] sendData = response.getBytes();
+                // Renvoyer le même message au client
+                byte[] sendData = message.getBytes();
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, clientAddress, clientPort);
                 serverSocket.send(sendPacket);
             }
@@ -33,4 +32,3 @@ public class UDPServer {
         }
     }
 }
-
