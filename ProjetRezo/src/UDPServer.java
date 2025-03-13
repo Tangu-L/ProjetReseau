@@ -1,12 +1,12 @@
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 public class UDPServer {
     private static final int PORT = 12345;
-    private static final Set<ClientInfo> clients = new HashSet<>();
+    private static final Map<ClientInfo, String> clients = new HashMap<>();
 
     public static void main(String[] args) {
         try (DatagramSocket serverSocket = new DatagramSocket(PORT)) {
@@ -21,14 +21,21 @@ public class UDPServer {
                 int clientPort = receivePacket.getPort();
                 String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
 
-                // Stocke l'adresse du client si nouveau
-                ClientInfo newClient = new ClientInfo(clientAddress, clientPort);
-                clients.add(newClient);
+                ClientInfo client = new ClientInfo(clientAddress, clientPort);
 
-                System.out.println("Message reçu de " + clientAddress + ":" + clientPort + " → " + message);
+                if (message.startsWith("___PSEUDO:")) {
+                    // Un client envoie son pseudo au format "PSEUDO:Nom"
+                    String pseudo = message.substring(7).trim();
+                    clients.put(client, pseudo);
+                    System.out.println("Nouveau client : " + pseudo + " (" + clientAddress + ":" + clientPort + ")");
+                } else {
+                    // Récupération du pseudo du client
+                    String pseudo = clients.getOrDefault(client, "Inconnu");
+                    String messageAvecPseudo = pseudo + ": " + message;
 
-                // Envoie le message à tous les autres clients
-                broadcastMessage(serverSocket, message, newClient);
+                    System.out.println("Message reçu de " + pseudo + " → " + message);
+                    broadcastMessage(serverSocket, messageAvecPseudo, client);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -37,8 +44,7 @@ public class UDPServer {
 
     private static void broadcastMessage(DatagramSocket serverSocket, String message, ClientInfo sender) {
         byte[] sendData = message.getBytes();
-        for (ClientInfo client : clients) {
-            // Ne pas renvoyer le message à l'expéditeur
+        for (ClientInfo client : clients.keySet()) {
             if (!client.equals(sender)) {
                 try {
                     DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, client.getAddress(), client.getPort());
@@ -51,7 +57,6 @@ public class UDPServer {
     }
 }
 
-// Classe pour stocker les infos d'un client (IP + port)
 class ClientInfo {
     private final InetAddress address;
     private final int port;

@@ -5,16 +5,24 @@ import java.util.Scanner;
 
 public class UDPClient {
     public static void main(String[] args) {
-        String serverIP = "127.0.0.1"; // Adresse du serveur
+        String serverIP = "10.146.72.166"; // Adresse du serveur
         int serverPort = 12345; // Port du serveur
 
         try (DatagramSocket clientSocket = new DatagramSocket();
              Scanner scanner = new Scanner(System.in)) {
 
             System.out.print("Entrez votre pseudo : ");
-            String pseudo = scanner.nextLine(); // Demande du pseudo
+            String pseudo = scanner.nextLine();
 
-            // Thread pour écouter les messages en continu
+            InetAddress serverAddress = InetAddress.getByName(serverIP);
+
+            // Envoi du pseudo au serveur
+            String pseudoMessage = "___PSEUDO:" + pseudo;
+            byte[] pseudoData = pseudoMessage.getBytes();
+            DatagramPacket pseudoPacket = new DatagramPacket(pseudoData, pseudoData.length, serverAddress, serverPort);
+            clientSocket.send(pseudoPacket);
+
+            // Thread pour écouter les messages
             Thread listenerThread = new Thread(() -> {
                 try {
                     while (true) {
@@ -24,7 +32,7 @@ public class UDPClient {
 
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
                         System.out.println("\n" + receivedMessage);
-                        System.out.print("Vous : "); // Remet le curseur en place pour l'utilisateur
+                        System.out.print("Vous : ");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -36,10 +44,8 @@ public class UDPClient {
             while (true) {
                 System.out.print("Vous : ");
                 String message = scanner.nextLine();
-                String messageAvecPseudo = pseudo + ": " + message;
 
-                byte[] sendData = messageAvecPseudo.getBytes();
-                InetAddress serverAddress = InetAddress.getByName(serverIP);
+                byte[] sendData = message.getBytes();
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
                 clientSocket.send(sendPacket);
             }
