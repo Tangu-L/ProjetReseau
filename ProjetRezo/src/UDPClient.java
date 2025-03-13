@@ -3,6 +3,10 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Scanner;
 
+/**
+ * Client UDP permettant de communiquer avec un serveur via une chatroom.
+ * Chaque client peut envoyer et recevoir des messages en temps réel.
+ */
 public class UDPClient {
     public static void main(String[] args) {
         String serverIP = "10.146.72.166"; // Adresse du serveur
@@ -16,13 +20,13 @@ public class UDPClient {
 
             InetAddress serverAddress = InetAddress.getByName(serverIP);
 
-            // Envoi du pseudo au serveur
+            // Envoi du pseudo au serveur pour l'enregistrement
             String pseudoMessage = "___PSEUDO:" + pseudo;
             byte[] pseudoData = pseudoMessage.getBytes();
             DatagramPacket pseudoPacket = new DatagramPacket(pseudoData, pseudoData.length, serverAddress, serverPort);
             clientSocket.send(pseudoPacket);
 
-            // Thread pour écouter les messages
+            // Thread pour écouter les messages entrants
             Thread listenerThread = new Thread(() -> {
                 try {
                     while (true) {
@@ -40,12 +44,12 @@ public class UDPClient {
             });
             listenerThread.start();
 
-            // Envoi des messages
+            // Boucle pour l'envoi des messages
             while (true) {
                 System.out.print("Vous : ");
                 String message = scanner.nextLine();
 
-                // Deconnexion
+                // Gestion de la déconnexion avec /quit
                 if (message.equalsIgnoreCase("/quit")) {
                     byte[] sendData = message.getBytes();
                     DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
@@ -55,6 +59,7 @@ public class UDPClient {
                     break;
                 }
 
+                // Envoi du message au serveur
                 byte[] sendData = message.getBytes();
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
                 clientSocket.send(sendPacket);

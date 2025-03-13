@@ -6,10 +6,14 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Serveur UDP permettant la communication entre plusieurs clients.
+ * Utilise un pool de threads pour gérer chaque client indépendamment.
+ */
 public class UDPServer {
     private static final int PORT = 12345;
     private static final Set<ClientInfo> clients = new HashSet<>();
-    private static final ExecutorService threadPool = Executors.newCachedThreadPool(); // Pool de threads
+    private static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     public static void main(String[] args) {
         try (DatagramSocket serverSocket = new DatagramSocket(PORT)) {
@@ -20,7 +24,7 @@ public class UDPServer {
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                 serverSocket.receive(receivePacket);
 
-                // Créer un thread pour gérer le client
+                // Gère chaque client dans un thread séparé
                 threadPool.execute(new ClientHandler(serverSocket, receivePacket));
             }
         } catch (Exception e) {
@@ -28,7 +32,13 @@ public class UDPServer {
         }
     }
 
-    // Diffusion d'un message à tous sauf l'expéditeur
+    /**
+     * Diffuse un message à tous les clients sauf l'expéditeur.
+     *
+     * @param serverSocket Socket du serveur.
+     * @param message      Message à diffuser.
+     * @param sender       Client qui envoie le message.
+     */
     private static void broadcastMessage(DatagramSocket serverSocket, String message, ClientInfo sender) {
         byte[] sendData = message.getBytes();
         for (ClientInfo client : clients) {
@@ -38,7 +48,13 @@ public class UDPServer {
         }
     }
 
-    // Envoi d'un message à un seul client
+    /**
+     * Envoie un message à un client spécifique.
+     *
+     * @param serverSocket Socket du serveur.
+     * @param client       Destinataire du message.
+     * @param message      Contenu du message.
+     */
     private static void sendMessage(DatagramSocket serverSocket, ClientInfo client, String message) {
         byte[] sendData = message.getBytes();
         try {
@@ -49,6 +65,12 @@ public class UDPServer {
         }
     }
 
+    /**
+     * Recherche un client par son pseudo.
+     *
+     * @param pseudo Pseudo du client recherché.
+     * @return ClientInfo correspondant au pseudo, ou null si inexistant.
+     */
     private static ClientInfo getClientByPseudo(String pseudo) {
         for (ClientInfo client : clients) {
             if (client.getPseudo().equalsIgnoreCase(pseudo)) {
@@ -58,11 +80,19 @@ public class UDPServer {
         return null;
     }
 
-    // Classe pour gérer chaque client dans un thread
+    /**
+     * Classe interne pour gérer chaque client dans un thread séparé.
+     */
     private static class ClientHandler implements Runnable {
         private final DatagramSocket serverSocket;
         private final DatagramPacket receivePacket;
 
+        /**
+         * Constructeur du gestionnaire de client.
+         *
+         * @param serverSocket Socket du serveur.
+         * @param receivePacket Paquet reçu contenant le message du client.
+         */
         public ClientHandler(DatagramSocket serverSocket, DatagramPacket receivePacket) {
             this.serverSocket = serverSocket;
             this.receivePacket = receivePacket;
@@ -130,12 +160,21 @@ public class UDPServer {
     }
 }
 
-// Classe pour stocker les clients
+/**
+ * Classe représentant un client avec son adresse, port et pseudo.
+ */
 class ClientInfo {
     private final InetAddress address;
     private final int port;
     private String pseudo;
 
+    /**
+     * Constructeur d'un client.
+     *
+     * @param address Adresse IP du client.
+     * @param port Port UDP du client.
+     * @param pseudo Pseudo du client.
+     */
     public ClientInfo(InetAddress address, int port, String pseudo) {
         this.address = address;
         this.port = port;
