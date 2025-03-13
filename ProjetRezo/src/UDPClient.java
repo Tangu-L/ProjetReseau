@@ -45,6 +45,15 @@ public class UDPClient {
                 System.out.print("Vous : ");
                 String message = scanner.nextLine();
 
+                if (message.equalsIgnoreCase("/quit")) {
+                    byte[] sendData = message.getBytes();
+                    DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
+                    clientSocket.send(sendPacket);
+                    System.out.println("Vous avez quitté la chatroom.");
+                    clientSocket.close();
+                    break;
+                }
+
                 byte[] sendData = message.getBytes();
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
                 clientSocket.send(sendPacket);
