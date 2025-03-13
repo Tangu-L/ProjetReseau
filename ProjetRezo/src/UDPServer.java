@@ -3,10 +3,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class UDPServer {
     private static final int PORT = 12345;
     private static final Set<ClientInfo> clients = new HashSet<>();
+    private static final ExecutorService threadPool = Executors.newCachedThreadPool(); // Pool de threads
 
     public static void main(String[] args) {
         try (DatagramSocket serverSocket = new DatagramSocket(PORT)) {
@@ -17,80 +20,25 @@ public class UDPServer {
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                 serverSocket.receive(receivePacket);
 
-                InetAddress clientAddress = receivePacket.getAddress();
-                int clientPort = receivePacket.getPort();
-                String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
-
-                ClientInfo sender = getClient(clientAddress, clientPort);
-
-                if (message.startsWith("___PSEUDO:")) {
-                    // Gestion de l'enregistrement du pseudo
-                    String pseudo = message.substring(10).trim();
-                    if (sender == null) {
-                        clients.add(new ClientInfo(clientAddress, clientPort, pseudo));
-                        System.out.println("Nouveau client : " + pseudo + " (" + clientAddress + ":" + clientPort + ")");
-                        broadcastMessage(serverSocket, "🔵 " + pseudo + " a rejoint la chatroom.", null);
-                    } else {
-                        sender.setPseudo(pseudo);
-                        System.out.println("Mise à jour du pseudo : " + pseudo + " (" + clientAddress + ":" + clientPort + ")");
-                    }
-                } else if (message.equalsIgnoreCase("/quit")) {
-                    // Gestion de la déconnexion
-                    if (sender != null) {
-                        clients.remove(sender);
-                        System.out.println("Client déconnecté : " + sender.getPseudo());
-                        broadcastMessage(serverSocket, "❌ " + sender.getPseudo() + " a quitté la chatroom.", null);
-                    }
-                } else if (message.startsWith("/mp ")) {
-                    // Gestion des messages privés
-                    handlePrivateMessage(serverSocket, sender, message.substring(4).trim());
-                } else {
-                    // Message normal diffusé à tout le monde
-                    if (sender != null) {
-                        String messageAvecPseudo = sender.getPseudo() + ": " + message;
-                        System.out.println("Message reçu de " + sender.getPseudo() + " → " + message);
-                        broadcastMessage(serverSocket, messageAvecPseudo, sender);
-                    }
-                }
+                // Créer un thread pour gérer le client
+                threadPool.execute(new ClientHandler(serverSocket, receivePacket));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void handlePrivateMessage(DatagramSocket serverSocket, ClientInfo sender, String content) {
-        if (sender == null) return;
-
-        String[] parts = content.split(" ", 2);
-        if (parts.length < 2) {
-            sendMessage(serverSocket, sender, "⚠️ Format incorrect. Utilisation : /mp [pseudo] [message]");
-            return;
-        }
-
-        String targetPseudo = parts[0];
-        String privateMessage = parts[1];
-
-        ClientInfo recipient = getClientByPseudo(targetPseudo);
-
-        if (recipient == null) {
-            sendMessage(serverSocket, sender, "⚠️ Le pseudo '" + targetPseudo + "' n'existe pas.");
-        } else {
-            String formattedMessage = "(MP) " + sender.getPseudo() + " → " + privateMessage;
-            sendMessage(serverSocket, recipient, formattedMessage);
-            sendMessage(serverSocket, sender, "(MP envoyé à " + recipient.getPseudo() + ") " + privateMessage);
-            System.out.println("Message privé de " + sender.getPseudo() + " à " + recipient.getPseudo() + " → " + privateMessage);
-        }
-    }
-
+    // Diffusion d'un message à tous sauf l'expéditeur
     private static void broadcastMessage(DatagramSocket serverSocket, String message, ClientInfo sender) {
         byte[] sendData = message.getBytes();
         for (ClientInfo client : clients) {
-            if (sender == null || !client.equals(sender)) {
+            if (!client.equals(sender)) {
                 sendMessage(serverSocket, client, message);
             }
         }
     }
 
+    // Envoi d'un message à un seul client
     private static void sendMessage(DatagramSocket serverSocket, ClientInfo client, String message) {
         byte[] sendData = message.getBytes();
         try {
@@ -101,15 +49,6 @@ public class UDPServer {
         }
     }
 
-    private static ClientInfo getClient(InetAddress address, int port) {
-        for (ClientInfo client : clients) {
-            if (client.getAddress().equals(address) && client.getPort() == port) {
-                return client;
-            }
-        }
-        return null;
-    }
-
     private static ClientInfo getClientByPseudo(String pseudo) {
         for (ClientInfo client : clients) {
             if (client.getPseudo().equalsIgnoreCase(pseudo)) {
@@ -118,8 +57,80 @@ public class UDPServer {
         }
         return null;
     }
+
+    // Classe pour gérer chaque client dans un thread
+    private static class ClientHandler implements Runnable {
+        private final DatagramSocket serverSocket;
+        private final DatagramPacket receivePacket;
+
+        public ClientHandler(DatagramSocket serverSocket, DatagramPacket receivePacket) {
+            this.serverSocket = serverSocket;
+            this.receivePacket = receivePacket;
+        }
+
+        @Override
+        public void run() {
+            try {
+                InetAddress clientAddress = receivePacket.getAddress();
+                int clientPort = receivePacket.getPort();
+                String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
+
+                ClientInfo sender = null;
+                for (ClientInfo client : clients) {
+                    if (client.getAddress().equals(clientAddress) && client.getPort() == clientPort) {
+                        sender = client;
+                        break;
+                    }
+                }
+
+                if (message.startsWith("___PSEUDO:")) {
+                    String pseudo = message.substring(10).trim();
+                    if (sender == null) {
+                        sender = new ClientInfo(clientAddress, clientPort, pseudo);
+                        clients.add(sender);
+                        System.out.println("Nouveau client : " + pseudo);
+                        broadcastMessage(serverSocket, "🔵 " + pseudo + " a rejoint la chatroom.", null);
+                    } else {
+                        sender.setPseudo(pseudo);
+                        System.out.println("Mise à jour du pseudo : " + pseudo);
+                    }
+                } else if (message.equalsIgnoreCase("/quit")) {
+                    if (sender != null) {
+                        clients.remove(sender);
+                        System.out.println("Client déconnecté : " + sender.getPseudo());
+                        broadcastMessage(serverSocket, "❌ " + sender.getPseudo() + " a quitté la chatroom.", null);
+                    }
+                } else if (message.startsWith("/mp ")) {
+                    if (sender != null) {
+                        String[] parts = message.substring(4).trim().split(" ", 2);
+                        if (parts.length < 2) {
+                            sendMessage(serverSocket, sender, "⚠️ Format incorrect : /mp [pseudo] [message]");
+                        } else {
+                            ClientInfo recipient = getClientByPseudo(parts[0]);
+                            if (recipient == null) {
+                                sendMessage(serverSocket, sender, "⚠️ Le pseudo '" + parts[0] + "' n'existe pas.");
+                            } else {
+                                String privateMessage = "(MP) " + sender.getPseudo() + " → " + parts[1];
+                                sendMessage(serverSocket, recipient, privateMessage);
+                                sendMessage(serverSocket, sender, "(MP envoyé à " + recipient.getPseudo() + ") " + parts[1]);
+                            }
+                        }
+                    }
+                } else {
+                    if (sender != null) {
+                        String formattedMessage = sender.getPseudo() + ": " + message;
+                        System.out.println("Message de " + sender.getPseudo() + " → " + message);
+                        broadcastMessage(serverSocket, formattedMessage, sender);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }
 
+// Classe pour stocker les clients
 class ClientInfo {
     private final InetAddress address;
     private final int port;

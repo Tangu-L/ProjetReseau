@@ -45,6 +45,7 @@ public class UDPClient {
                 System.out.print("Vous : ");
                 String message = scanner.nextLine();
 
+                // Deconnexion
                 if (message.equalsIgnoreCase("/quit")) {
                     byte[] sendData = message.getBytes();
                     DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
