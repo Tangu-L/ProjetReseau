@@ -1,5 +1,8 @@
 # UDP Chat Multithread
 
+LASNE Tanguy
+GUETTOUF Yanis
+
 ## Description
 Ce projet est une application de chat utilisant le protocole UDP. Il permet à plusieurs clients de communiquer via un serveur centralisé. Chaque client est géré dans un thread séparé pour assurer une gestion efficace des connexions simultanées.
 
