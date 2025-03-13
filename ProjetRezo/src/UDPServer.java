@@ -1,36 +1,84 @@
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.HashSet;
+import java.util.Set;
 
 public class UDPServer {
-    public static void main(String[] args) {
-        int port = 12345; // Port d'écoute
+    private static final int PORT = 12345;
+    private static final Set<ClientInfo> clients = new HashSet<>();
 
-        try (DatagramSocket serverSocket = new DatagramSocket(port)) {
-            System.out.println("Serveur UDP en écoute sur le port " + port);
+    public static void main(String[] args) {
+        try (DatagramSocket serverSocket = new DatagramSocket(PORT)) {
+            System.out.println("Serveur UDP en écoute sur le port " + PORT);
 
             while (true) {
-                // Réception du message
                 byte[] receiveData = new byte[1024];
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                 serverSocket.receive(receivePacket);
 
-                // Infos du client
                 InetAddress clientAddress = receivePacket.getAddress();
                 int clientPort = receivePacket.getPort();
                 String message = new String(receivePacket.getData(), 0, receivePacket.getLength());
 
-                System.out.println("Nouveau client : " + clientAddress + ":" + clientPort + " → " + message);
+                // Stocke l'adresse du client si nouveau
+                ClientInfo newClient = new ClientInfo(clientAddress, clientPort);
+                clients.add(newClient);
 
-                // Répondre au client
-                String response = "Serveur RX302 ready";
-                byte[] sendData = response.getBytes();
-                DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, clientAddress, clientPort);
-                serverSocket.send(sendPacket);
+                System.out.println("Message reçu de " + clientAddress + ":" + clientPort + " → " + message);
+
+                // Envoie le message à tous les autres clients
+                broadcastMessage(serverSocket, message, newClient);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
+    private static void broadcastMessage(DatagramSocket serverSocket, String message, ClientInfo sender) {
+        byte[] sendData = message.getBytes();
+        for (ClientInfo client : clients) {
+            // Ne pas renvoyer le message à l'expéditeur
+            if (!client.equals(sender)) {
+                try {
+                    DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, client.getAddress(), client.getPort());
+                    serverSocket.send(sendPacket);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 }
 
+// Classe pour stocker les infos d'un client (IP + port)
+class ClientInfo {
+    private final InetAddress address;
+    private final int port;
+
+    public ClientInfo(InetAddress address, int port) {
+        this.address = address;
+        this.port = port;
+    }
+
+    public InetAddress getAddress() {
+        return address;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        ClientInfo that = (ClientInfo) obj;
+        return port == that.port && address.equals(that.address);
+    }
+
+    @Override
+    public int hashCode() {
+        return address.hashCode() + port;
+    }
+}
