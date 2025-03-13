@@ -4,7 +4,7 @@ LASNE Tanguy
 GUETTOUF Yanis
 
 ## Description
-Ce projet est une application de chat utilisant le protocole UDP. Il permet à plusieurs clients de communiquer via un serveur centralisé. Chaque client est géré dans un thread séparé pour assurer une gestion efficace des connexions simultanées.
+Application de chat utilisant le protocole UDP. Il permet à plusieurs clients de communiquer via un serveur centralisé. Chaque client est géré dans un thread séparé pour assurer une gestion efficace des connexions simultanées.
 
 ## Fonctionnement
 Le serveur écoute sur un port spécifique et reçoit des messages des clients. Lorsqu’un client envoie un message, le serveur crée un thread dédié à son traitement. Chaque client est identifié par son adresse IP et son port, stocké dans une structure de données adaptée.
